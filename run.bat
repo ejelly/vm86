@@ -1,0 +1,2 @@
+loadelf stupid
+

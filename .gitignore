@@ -1,0 +1,7 @@
+*.obj
+*.o
+*.pdf
+empty
+loadelf
+stupid
+*.dSYM
