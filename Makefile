@@ -2,8 +2,8 @@ ELF_CFLAGS = -m32
 CFLAGS = -g -Wall -Werror -ansi -ffreestanding
 ELF_LDFLAGS = -melf_i386
 LDFLAGS = 
-ELFCC = /usr/local/gcc-4.5.2-for-linux64/bin/x86_64-pc-linux-gcc
-ELFLD = /usr/local/gcc-4.5.2-for-linux64/bin/x86_64-pc-linux-ld
+ELFCC = /usr/local/gcc-4.8.1-for-linux64/bin/x86_64-pc-linux-gcc
+ELFLD = /usr/local/gcc-4.8.1-for-linux64/bin/x86_64-pc-linux-ld
 NASM = /usr/local/bin/nasm
 
 FLOPPY = ~/VirtualBox\ VMs/vm86/vm86-floppy.img
