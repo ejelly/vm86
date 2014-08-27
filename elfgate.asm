@@ -5,6 +5,24 @@ SEGMENT CODE
 
 GLOBAL _enterpm
 EXTERN _gdt
+
+_rendezvous:    nop
+
+                mov ax, 0xb800
+                mov ds, ax
+
+                mov byte [ds:1], 0x05
+                mov byte [ds:0], 'V'
+                mov byte [ds:3], 0x05
+                mov byte [ds:2], 'M'
+                mov byte [ds:5], 0x05
+                mov byte [ds:4], '8'
+                mov byte [ds:7], 0x05
+                mov byte [ds:6], '6'
+                mov byte [ds:9], 0x05
+                mov byte [ds:8], '!'
+
+.loop           jmp .loop
        
 _enterpm:       cli
                 
@@ -23,6 +41,10 @@ _enterpm:       cli
                 push es
                 push fs
                 push gs
+
+                mov al, 0xff
+                out 0x21, al
+                out 0xa1, al
 
                 ; save old stack in registers
                 xor ebx, ebx
@@ -72,8 +94,10 @@ _enterpm:       cli
                 push edi
                 
                 ; push arguments
+                push word 0
                 push word cs            ; rendezvous CS
-                push word _exitreal     ; rendezvous exit
+                push word 0
+                push word _rendezvous   ; rendezvous exit
                 push dword [edi+16]     ; stack_len
                 push dword [edi+12]     ; stack_end
                 push dword 0xb0002000   ; magic

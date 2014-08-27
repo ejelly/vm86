@@ -1,0 +1,16 @@
+stack_size       16                             16b ss            
+stack_end        12                             16b sp            
+entry            8                              cs:_exitreal
+ret cs:ip        4                              16bl ebp 
+old ebp                 ss:ebp       edi        cs:_exitreal
+entr1000        -4                              stack_size
+    entr        -8                              stack_end
+                -12                             magic
+old eax                                         _exitpm32
+old ebx
+old ecx
+old edx
+old esi
+old edi
+old ds:es
+old fs:gs               ebx:esi

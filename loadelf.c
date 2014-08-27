@@ -278,8 +278,12 @@ void process_program_headers (image *img) {
   img->segnum = 0;
   for (i = 0; i < img->ehdr.e_phnum; i++) {
     Elf32_Phdr *phdr;
+    Elf32_Off aligned_offset;
+    Elf32_Off extra_start;
 
     phdr = img->phdrs+i;
+    extra_start = phdr->p_offset % PSIZE;
+    aligned_offset = phdr->p_offset - extra_start;
 
     if (phdr->p_type != PT_LOAD) {
       img->segs[i] = img->segframes[i] = NULL;
@@ -289,22 +293,23 @@ void process_program_headers (image *img) {
 
     img->segnum++;
 
-    printf("SEG %i: %li pages (%lu/%lu) ",
-           i, (unsigned long)(phdr->p_filesz+PSIZE-1) / PSIZE,
-           (unsigned long)phdr->p_memsz, (unsigned long)phdr->p_filesz);
+    printf("SEG %i: %li pages (%lu/%lu/%lu) ",
+           i,
+           (unsigned long)(phdr->p_filesz+PSIZE-1) / PSIZE,
+           (unsigned long)phdr->p_memsz, (unsigned long)phdr->p_filesz,
+           (unsigned long)phdr->p_memsz+extra_start);
 
     if (phdr->p_filesz > phdr->p_memsz)
       errorout("segmem memsize %u is smaller than filesize %u?",
                phdr->p_filesz, phdr->p_memsz);
 
-    img->segs[i] = page_alloc(phdr->p_memsz, img->segframes+i);
-    img_read(img, img->segs[i], phdr->p_offset, phdr->p_filesz);
+    img->segs[i] = page_alloc(phdr->p_memsz + extra_start, img->segframes+i);
+    img_read(img, img->segs[i], aligned_offset, phdr->p_filesz+extra_start);
 
     printf("at %04x, frame %p (%lu bytes wasted).\n",
            (unsigned int)FP_SEG(img->segs[i]), img->segframes[i],
            (unsigned long)(LINEAR_ADDR(img->segs[i]) -
                            LINEAR_ADDR(img->segframes[i])));
-
   }
   if (ignored)
       printf("%i %s ignored.\n", ignored,
@@ -369,8 +374,9 @@ int main (int argc, char *argv[]) {
   if (argc != 2)
     errorout("must specify path to ELF executable.");
 
-  printf("LOADELF 0.1q  -- "
-         "DOS-preserving loader for 32-bit ELF executables.\n\n");
+  printf("LOADELF 0.2q  -- "
+         "DOS-preserving loader for 32-bit ELF executables.\n"
+         "Copyright (C) 2013-2014 Julien Oster <dev@julien-oster.de>\n\n");
 
   img = open_image(argv[1]);
 
@@ -385,9 +391,10 @@ int main (int argc, char *argv[]) {
      (some entries may be overwritten later) */
   ptable1st = page_alloc(PSIZE, &ptable1st_frame);
   for (i = 0; i < PSIZE/4; i++)
-    ptable1st[i] = (uint32_t)i << 12 | PT_PRESENT | PT_USER;
+    ptable1st[i] = (uint32_t)i << 12 | PT_PRESENT | PT_USER | PT_WRITE;
 
-  pdir[0] = (LINEAR_ADDR(ptable1st) & ~P_OFF_MASK) | PT_PRESENT | PT_USER;
+  pdir[0] = (LINEAR_ADDR(ptable1st) & ~P_OFF_MASK)
+      | PT_PRESENT | PT_USER | PT_WRITE;
 
   /* Set up page table entries for loaded segments */
   for (i = 0; i < img->ehdr.e_phnum; i++) {
@@ -420,14 +427,14 @@ int main (int argc, char *argv[]) {
         void *pt_frame;
         pt = page_alloc(PSIZE, &pt_frame);
         pdir[pdir_off] = (LINEAR_ADDR(pt) & ~P_OFF_MASK) |
-          PT_PRESENT | PT_USER;
+          PT_PRESENT | PT_USER | PT_WRITE;
 #ifdef __LP64__
         pdir_highbits[pdir_off] = (uint64_t)LINEAR_ADDR(pt) &
           ~(uint64_t)0xffffffff;
 #endif
       }
 
-      pt[pt_off] = ((paddr) & ~P_OFF_MASK) | PT_PRESENT | PT_USER;
+      pt[pt_off] = ((paddr) & ~P_OFF_MASK) | PT_PRESENT | PT_USER | PT_WRITE;
     }
   }
 

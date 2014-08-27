@@ -1,5 +1,5 @@
 ELF_CFLAGS = -m32
-CFLAGS = -g -Wall -Werror -ansi -ffreestanding
+CFLAGS = -g -Wall -Werror -ansi -ffreestanding -std=c99
 ELF_LDFLAGS = -melf_i386
 LDFLAGS = 
 ELFCC = /usr/local/gcc-4.8.1-for-linux64/bin/x86_64-pc-linux-gcc
