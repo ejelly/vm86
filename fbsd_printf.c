@@ -356,7 +356,7 @@ kvprintf(char const *fmt, void (*func)(int, void*), void *arg, int radix, va_lis
       else if (hflag)
         num = (u_short)va_arg(ap, int);
       else if (cflag)
-        num = (u_char)va_arg(ap, int);
+          num = (u_char)va_arg(ap, int);
       else
         num = va_arg(ap, u_int);
       goto number;
@@ -434,15 +434,47 @@ kvprintf(char const *fmt, void (*func)(int, void*), void *arg, int radix, va_lis
 #undef PCHAR
 }
 
-extern void putchar(int c, void *arg);
+extern void nputchar(int c, void *arg);
 
-void
+int
 printf(const char *fmt, ...)
 {
   /* http://www.pagetable.com/?p=298 */
   va_list ap;
 
   va_start(ap, fmt);
-  kvprintf(fmt, putchar, NULL, 10, ap);
+  int ret = kvprintf(fmt, nputchar, NULL, 10, ap);
   va_end(ap);
+  return ret;
+}
+
+struct str {
+    char *buf;
+    size_t pos;
+    size_t size;
+};
+
+void putchar_str(int c, void *data) {
+    struct str *str = (struct str*)data;
+
+    if (str->size == 0 || str->pos < str->size - 1) {
+        str->buf[str->pos++] = c;
+    }
+}                    
+
+int sprintf(char *buf, const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);
+
+    int ret = kvprintf(fmt, NULL, buf, 10, ap);
+    va_end(ap);
+    return ret;
+}
+
+int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
+    struct str str = { .buf = buf, .pos = 0, .size = size};
+    int n = kvprintf(fmt, putchar_str, &str, 10, ap);
+    buf[n] = 0;
+    return n;
 }

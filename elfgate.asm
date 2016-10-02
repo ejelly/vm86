@@ -22,7 +22,20 @@ _rendezvous:    nop
                 mov byte [ds:9], 0x05
                 mov byte [ds:8], '!'
 
-.loop           jmp .loop
+                int 0x44
+                int 0x44
+
+                mov byte [ds:11], 0x05
+                mov byte [ds:10], '!'
+
+                sti
+
+                mov dl, al
+                mov ah, 0x31
+                int 0x21
+                
+                cli
+                hlt
        
 _enterpm:       cli
                 
@@ -42,9 +55,9 @@ _enterpm:       cli
                 push fs
                 push gs
 
-                mov al, 0xff
-                out 0x21, al
-                out 0xa1, al
+                ;                mov al, 0xff
+                ;                out 0x21, al
+                ;                out 0xa1, al
 
                 ; save old stack in registers
                 xor ebx, ebx
@@ -95,9 +108,9 @@ _enterpm:       cli
                 
                 ; push arguments
                 push word 0
-                push word cs            ; rendezvous CS
+                push word [edi+22]      ; rendezvous CS
                 push word 0
-                push word _rendezvous   ; rendezvous exit
+                push word [edi+20]      ; rendezvous exit
                 push dword [edi+16]     ; stack_len
                 push dword [edi+12]     ; stack_end
                 push dword 0xb0002000   ; magic

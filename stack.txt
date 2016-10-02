@@ -1,3 +1,4 @@
+rendezvous       20                             cs:rendezvous
 stack_size       16                             16b ss            
 stack_end        12                             16b sp            
 entry            8                              cs:_exitreal

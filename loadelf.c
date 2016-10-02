@@ -157,12 +157,12 @@ typedef struct {
 } image;
 
 uint32_t gdt[] = {
-  0, 0,                         /* Empty */
-  0x0000ffff, 0x00cf9200,       /* CPL0 4GB writable data */
-  0x0000ffff, 0x00cf9a00,       /* CPL0 4GB readable code */
-  0x0000ffff, 0x00009200,       /* CPL0 64kb writable data 16bit */
-  0x0000ffff, 0x00009a00,       /* CPL0 64kb readable code 16bit */
-  0x0000ffff, 0x00009200,       /* CPL0 64kb writable data 16bit (stack) */
+  0, 0,                         /* 0x00 Empty */
+  0x0000ffff, 0x00cf9200,       /* 0x08 CPL0 4GB writable data */
+  0x0000ffff, 0x00cf9a00,       /* 0x10 CPL0 4GB readable code */
+  0x0000ffff, 0x00009200,       /* 0x18 CPL0 64kb writable data 16bit */
+  0x0000ffff, 0x00009a00,       /* 0x20 CPL0 64kb readable code 16bit */
+  0x0000ffff, 0x00009200,       /* 0x28 CPL0 64kb writable data 16bit (stack) */
 };
 
 #pragma pack(push,1)
@@ -195,14 +195,16 @@ void __huge *page_alloc (size_t size, void * __huge *frame) {
 static
 void img_read (const image *img, void __huge *buf,
                Elf32_Off off, Elf32_Off len) {
-  int n;
+  off_t n;
 
   if (fseek(img->file, off, SEEK_SET) < 0)
     perrorout("image seek error");
 
   if ((n = fread(buf, 1, len, img->file)) != len) {
-    if (n < 0)
-      perrorout("image read error");
+      if (n < 0) {
+          fprintf(stderr, "while reading %ld bytes at %ld (%ld read)\n", len, off);
+          perrorout("image read error");
+      }
 
     errorout("short read: %i instead of %i bytes.", n, len);
   }
@@ -306,7 +308,7 @@ void process_program_headers (image *img) {
     img->segs[i] = page_alloc(phdr->p_memsz + extra_start, img->segframes+i);
     img_read(img, img->segs[i], aligned_offset, phdr->p_filesz+extra_start);
 
-    printf("at %04x, frame %p (%lu bytes wasted).\n",
+    printf("at %04x, frame %p (%lu wasted).\n",
            (unsigned int)FP_SEG(img->segs[i]), img->segframes[i],
            (unsigned long)(LINEAR_ADDR(img->segs[i]) -
                            LINEAR_ADDR(img->segframes[i])));
@@ -325,7 +327,7 @@ void __cdecl __far sidt (struct gdtr __far *);
 void __cdecl __far lidt (struct gdtr __far *);
 void __cdecl __far getcr3 (addr __far*);
 void __cdecl __far setcr3 (addr __far*);
-void __cdecl __far enterpm (addr, addr, addr_diff);
+void __cdecl __far enterpm (addr, addr, addr_diff, void __far *);
 #else
 void cli(void) { };
 void sti(void) { };
@@ -335,7 +337,7 @@ void sidt (struct gdtr __far *x) { };
 void lidt (struct gdtr __far *x) { };
 void setcr3(addr __far *x) { };
 void getcr3(addr __far *x) { };
-void enterpm(addr x, addr s, addr_diff si) { };
+void enterpm(addr x, addr s, addr_diff si, void __far *rcs) { };
 #endif
 
 static
@@ -347,6 +349,11 @@ void setup_gdt (uint32_t *gdt, uint16_t len) {
   
   lgdt(&new_gdtr);
   sgdt(&new_gdtr);
+}
+
+void rendezvous(void) {
+    printf("Rendezvous reached.\n");
+    _dos_keep(0, 0);
 }
 
 #define stack_size 2048
@@ -376,7 +383,7 @@ int main (int argc, char *argv[]) {
 
   printf("LOADELF 0.2q  -- "
          "DOS-preserving loader for 32-bit ELF executables.\n"
-         "Copyright (C) 2013-2014 Julien Oster <dev@julien-oster.de>\n\n");
+         "Copyright (C) 2013-2015 Julien Oster <dev@julien-oster.de>\n\n");
 
   img = open_image(argv[1]);
 
@@ -441,7 +448,6 @@ int main (int argc, char *argv[]) {
   printf("\n");
 
   setup_gdt(gdt, sizeof(gdt));
-  /* _dos_keep(0, 0); */
 
   stack_start = halloc(stack_size / 16, 16);
   stack_end = LINEAR_ADDR(stack_start) + stack_size;
@@ -449,7 +455,7 @@ int main (int argc, char *argv[]) {
   setcr3(&pdir_addr);
   printf("PREPARE FOR LANDING: 0x%08lx with stack at 0x%05lx\n\n",
          (unsigned long)img->ehdr.e_entry, (unsigned long)stack_end);
-  enterpm(img->ehdr.e_entry, stack_end, stack_size);
+  enterpm(img->ehdr.e_entry, stack_end, stack_size, rendezvous);
 
   printf("LOADELF: Back in Real Mode, exiting.\n");
 
